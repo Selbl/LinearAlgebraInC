@@ -99,6 +99,51 @@ bool sumMatrices(const Matrix *matrix_a, const Matrix *matrix_b, bool subtractio
 }
 
 /*
+ * Function: (bool) multiplymMatrices
+ * --------------------
+ * Multiplies two matrices and returns whether the multiplication was successful
+ * Fails if both matrices have dimensions that do not match
+ * This implementation requires that the number of columns of the first matrix
+ * Equals the number of rows of the second matrix
+ * 
+ * The multiplication process is as follows:
+ * result_{r,c} = sum^{columns_A - 1}_{k=0} A_{r,k} B_{k,c}
+ *
+ *  matrix_a (pointer): a pointer to the first matrix struct that you want to sum
+ *  matrix_b (pointer): a pointer to the second matrix struct that you want to sum
+ * *result_matrix (pointer): a pointer to the result (a Matrix struct)
+*/
+
+bool multiplyMatrices(const Matrix *matrix_a, const Matrix *matrix_b, Matrix *result){
+    /* Check compatible dimensions*/
+    if (matrix_a->cols!= matrix_b->rows){
+        printf("Incompatible dimensions in matrix multiplication");
+        return false;
+    }
+    /* Enforce dimensions for result matrix */
+    result->rows = matrix_a->cols;
+    result->cols = matrix_b->cols;
+    /* Multiply */
+    int r;
+    int c;
+    int k;
+    for(r = 0; r < matrix_a->rows;r++){
+        for(c=0;c<matrix_b->cols;c++){
+            /* Initialize element at (r,c)*/
+            /* Summing flattened array so have to adjust for dimensions*/
+            *(result->data + r * result->cols + c) = 0;
+            for(k = 0; k < matrix_a->cols; k++){
+                *(result->data + r * result->cols + c) += 
+                    (*(matrix_a->data + r * matrix_a->cols + k)) * 
+                    (*(matrix_b->data + k * matrix_b->cols + c));
+            }
+        }
+    }
+    /*After the routine is over, return success*/
+    return true;
+}
+
+/*
  * Function: (void) printMatrix
  * --------------------
  *  Prints a matrix in a 2D fashion
@@ -131,13 +176,17 @@ int main(){
     /* Define data for example */
     double matrixAData[2][3] = {{1.1,2.2,3.3},{4.3,5.2,6.1}};
     double matrixBData[2][3] = {{0.4,3.7,8.9},{4.5,2.7,6.9}};
+    double matrixCData[3][2] = {{1.3,4.3},{5.2,0.0},{6.7,8.8}};
     /* Initialize result matrix */
     double resultData[2][3];
+    double resultMultData[2][2];
     /* Generate matrix structs */
     Matrix matrixA = {2,3, (double *)matrixAData};
     Matrix matrixB = {2,3, (double *)matrixBData};
+    Matrix matrixC = {3,2, (double *)matrixCData};
     Matrix resultSum = {2,3, (double *)resultData};
     Matrix resultMinus = {2,3, (double *)resultData};
+    Matrix resultMult = {2,2, (double *)resultMultData};
     /* Perform sum */
     if (sumMatrices(&matrixA, &matrixB, false, &resultSum)) {
         printf("Sum of matrices:\n");
@@ -145,6 +194,11 @@ int main(){
     }
     if (sumMatrices(&matrixA, &matrixB, true, &resultMinus)) {
         printf("Subtraction of matrices:\n");
+        printMatrix(&resultMinus);
+    }
+    /* Perform multiplication */
+    if (multiplyMatrices(&matrixA, &matrixC, &resultMult)) {
+        printf("Multiplication of matrices:\n");
         printMatrix(&resultMinus);
     }
     return 0;
