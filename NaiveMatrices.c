@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 /*
@@ -46,6 +47,53 @@ bool checkDimensions(const Matrix *matrix_a, const Matrix *matrix_b) {
 */
 bool isSquare(const Matrix *mat){
     return (mat->rows == mat->cols);
+}
+
+/*
+ * Function: (bool) transposeMatrix
+ * --------------------
+ * Transposes a matrix. If the matrix is square, it transposes in place.
+ * If the matrix is rectangular, it creates a new matrix for the result.
+ *
+ *  matrix (pointer): the original matrix
+ *  result (pointer): the transposed matrix, allocated if not square
+ *
+ *  Returns true if successful, false on failure (e.g., memory allocation issues)
+ */
+bool transposeMatrix(const Matrix *matrix, Matrix *result) {
+    // Check if the matrix is square
+    if (isSquare(matrix)) {
+        // In-place transpose for square matrix
+        for (int i = 0; i < matrix->rows; i++) {
+            for (int j = i + 1; j < matrix->cols; j++) {
+                // Swap elements at (i, j) and (j, i)
+                double temp = *(matrix->data + i * matrix->cols + j);
+                *(matrix->data + i * matrix->cols + j) = *(matrix->data + j * matrix->cols + i);
+                *(matrix->data + j * matrix->cols + i) = temp;
+            }
+        }
+        // If the matrix is square, the dimensions of the result are the same as the original
+        result->rows = matrix->rows;
+        result->cols = matrix->cols;
+        result->data = matrix->data;
+    } else {
+        // Allocate memory for the result if the matrix is not square
+        result->rows = matrix->cols;
+        result->cols = matrix->rows;
+        result->data = (double *)malloc(result->rows * result->cols * sizeof(double));
+        if (result->data == NULL) {
+            printf("Memory allocation failed for transposed matrix.\n");
+            return false;
+        }
+
+        // Transpose the matrix into the result matrix
+        for (int i = 0; i < matrix->rows; i++) {
+            for (int j = 0; j < matrix->cols; j++) {
+                *(result->data + j * result->cols + i) = *(matrix->data + i * matrix->cols + j);
+            }
+        }
+    }
+    return true;
 }
 
 /*
@@ -200,6 +248,38 @@ int main(){
     if (multiplyMatrices(&matrixA, &matrixC, &resultMult)) {
         printf("Multiplication of matrices:\n");
         printMatrix(&resultMinus);
+    }
+    /* Test cases for transposing */
+    // Define a result matrix for the transpose
+    double vectorData[1][3] = {1.1,2.2,3.3};
+    Matrix vector = {1,3,(double *)vectorData};
+    Matrix resultTrans;
+    Matrix vectorTrans;
+
+    // Transpose the matrix
+    if (transposeMatrix(&matrixA, &resultTrans)) {
+        printf("Original matrix:\n");
+        printMatrix(&matrixA);
+        printf("Transposed matrix:\n");
+        printMatrix(&resultTrans);
+        
+        // Free memory if the transpose was out-of-place (rectangular)
+        if (matrixA.data != resultTrans.data) {
+            free(resultTrans.data);
+        }
+    }
+    
+    // Transpose the vector
+    if (transposeMatrix(&vector, &vectorTrans)) {
+        printf("Original vectpr:\n");
+        printMatrix(&vector);
+        printf("Transposed vector:\n");
+        printMatrix(&vectorTrans);
+        
+        // Free memory if the transpose was out-of-place (rectangular)
+        if (vector.data != vectorTrans.data) {
+            free(vectorTrans.data);
+        }
     }
     return 0;
 }
