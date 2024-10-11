@@ -49,17 +49,34 @@ bool isSquare(const Matrix *mat){
 }
 
 /*
+ * Function:  (void) multiplyScalar
+ * --------------------
+ * Multiplies a matrix by a scalar
+ *
+ *  *mat (pointer): a pointer to a matrix struct
+ *  scalar (double): a scalar value
+*/
+void multiplyScalar(const Matrix *matrix, double scalar){
+    int i;
+    for(i = 0; i < matrix->rows + matrix->cols; i++){
+        *(matrix->data + i) *= scalar;
+    }
+}
+
+/*
  * Function: (bool) sumMatrices
  * --------------------
  * Sums two matrices and returns whether the sum was successful
  * Fails if both matrices have different dimensions
+ * Can handle subtraction as well and it operates as matrix_a - matrix_b
  *
  *  matrix_a (pointer): a pointer to the first matrix struct that you want to sum
  *  matrix_b (pointer): a pointer to the second matrix struct that you want to sum
- *  *result_matrix (pointer): a pointer to the result (a Matrix struct)
+ *  subtraction (bool): a boolean that indicates whether it is a subtraction instead
+ * *result_matrix (pointer): a pointer to the result (a Matrix struct)
 */
 
-bool sumMatrices(const Matrix *matrix_a, const Matrix *matrix_b, Matrix *result){
+bool sumMatrices(const Matrix *matrix_a, const Matrix *matrix_b, bool subtraction, Matrix *result){
     /* Check same dimensions*/
     if(!checkDimensions(matrix_a,matrix_b)){
         printf("Mismatch in the dimensions when summing");
@@ -68,6 +85,10 @@ bool sumMatrices(const Matrix *matrix_a, const Matrix *matrix_b, Matrix *result)
     /* Enforce dimensions for result matrix */
     result->rows = matrix_a->rows;
     result->cols = matrix_a->cols;
+    /* If it is a subtraction then change every element in matrix_b to its negative */
+    if(subtraction){
+        multiplyScalar(matrix_b, -1.0);
+    }
     /*If it works, then sum the matrices in a flattened fashion*/
     int i;
     for(i = 0;i < matrix_a->rows*matrix_a->cols;i++){
@@ -115,11 +136,16 @@ int main(){
     /* Generate matrix structs */
     Matrix matrixA = {2,3, (double *)matrixAData};
     Matrix matrixB = {2,3, (double *)matrixBData};
-    Matrix result = {2,3, (double *)resultData};
+    Matrix resultSum = {2,3, (double *)resultData};
+    Matrix resultMinus = {2,3, (double *)resultData};
     /* Perform sum */
-    if (sumMatrices(&matrixA, &matrixB, &result)) {
+    if (sumMatrices(&matrixA, &matrixB, false, &resultSum)) {
         printf("Sum of matrices:\n");
-        printMatrix(&result);
+        printMatrix(&resultSum);
+    }
+    if (sumMatrices(&matrixA, &matrixB, true, &resultMinus)) {
+        printf("Subtraction of matrices:\n");
+        printMatrix(&resultMinus);
     }
     return 0;
 }
