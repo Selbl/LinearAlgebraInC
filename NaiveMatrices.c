@@ -1,6 +1,9 @@
+#include "NaiveMatrices.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
+#include <string.h>
+#include <math.h>
+#include <time.h>
 
 /*
  * Struct:  Matrix 
@@ -16,11 +19,13 @@
  *               the data is flattened from a 2D array
  */
 
-typedef struct{
-    int rows;
-    int cols;
-    double *data;
-} Matrix;
+
+//typedef struct{
+//    int rows;
+//    int cols;
+//    double *data;
+//} Matrix;
+
 
 /*
  * Function:  (bool) checkDimensions
@@ -61,15 +66,18 @@ bool isSquare(const Matrix *mat){
  *  Returns true if successful, false on failure (e.g., memory allocation issues)
  */
 bool transposeMatrix(const Matrix *matrix, Matrix *result) {
+    // Define indices of for loops
+    int r;
+    int c;
     // Check if the matrix is square
     if (isSquare(matrix)) {
         // In-place transpose for square matrix
-        for (int i = 0; i < matrix->rows; i++) {
-            for (int j = i + 1; j < matrix->cols; j++) {
-                // Swap elements at (i, j) and (j, i)
-                double temp = *(matrix->data + i * matrix->cols + j);
-                *(matrix->data + i * matrix->cols + j) = *(matrix->data + j * matrix->cols + i);
-                *(matrix->data + j * matrix->cols + i) = temp;
+        for (r = 0; r < matrix->rows; r++) {
+            for (c = r + 1; c < matrix->cols; c++) {
+                // Swap elements at (r, c) and (c, r)
+                double temp = *(matrix->data + r * matrix->cols + c);
+                *(matrix->data + r * matrix->cols + c) = *(matrix->data + c * matrix->cols + r);
+                *(matrix->data + c * matrix->cols + r) = temp;
             }
         }
         // If the matrix is square, the dimensions of the result are the same as the original
@@ -87,9 +95,9 @@ bool transposeMatrix(const Matrix *matrix, Matrix *result) {
         }
 
         // Transpose the matrix into the result matrix
-        for (int i = 0; i < matrix->rows; i++) {
-            for (int j = 0; j < matrix->cols; j++) {
-                *(result->data + j * result->cols + i) = *(matrix->data + i * matrix->cols + j);
+        for (r = 0; r < matrix->rows; r++) {
+            for (c = 0; c < matrix->cols; c++) {
+                *(result->data + c * result->cols + r) = *(matrix->data + r * matrix->cols + c);
             }
         }
     }
@@ -109,6 +117,28 @@ void multiplyScalar(const Matrix *matrix, double scalar){
     for(i = 0; i < matrix->rows + matrix->cols; i++){
         *(matrix->data + i) *= scalar;
     }
+}
+
+/*
+ * Function: (double) norm
+ * --------------------
+ * Returns L2 norm of a vector
+ *  vector (pointer): a pointer to vector (Matrix struct) to calculate the norm
+*/
+double norm(const Matrix *vector){
+    // Check that it is in fact a vector
+    if (vector->cols != 1){
+        printf("Trying to get the norm of a non-vector");
+        return 1;
+    }
+    int i;
+    double ret = 0.0;
+    for(i = 0; i < vector->rows; i++){
+        ret += pow(vector->data[i],2);
+    }
+    ret = sqrt(ret);
+    ret /= vector->rows;
+    return ret;
 }
 
 /*
@@ -169,7 +199,7 @@ bool multiplyMatrices(const Matrix *matrix_a, const Matrix *matrix_b, Matrix *re
         return false;
     }
     /* Enforce dimensions for result matrix */
-    result->rows = matrix_a->cols;
+    result->rows = matrix_a->rows;
     result->cols = matrix_b->cols;
     /* Multiply */
     int r;
@@ -213,76 +243,207 @@ void printMatrix(const Matrix *matrix){
 }
 
 /*
- * Function: (int) main
+ * Function: Matrix initMatrixZeros
  * --------------------
- *  Executes the routine of summing two matrices
- *  Placeholder values for now
+ *  Initializes a matrix to a matrix of zeros
  *
- *  No arguments
+ *  rows (int): the number of rows of the matrix
+ *  cols (int): the number of columns of the matrix
 */
-int main(){
-    /* Define data for example */
-    double matrixAData[2][3] = {{1.1,2.2,3.3},{4.3,5.2,6.1}};
-    double matrixBData[2][3] = {{0.4,3.7,8.9},{4.5,2.7,6.9}};
-    double matrixCData[3][2] = {{1.3,4.3},{5.2,0.0},{6.7,8.8}};
-    /* Initialize result matrix */
-    double resultData[2][3];
-    double resultMultData[2][2];
-    /* Generate matrix structs */
-    Matrix matrixA = {2,3, (double *)matrixAData};
-    Matrix matrixB = {2,3, (double *)matrixBData};
-    Matrix matrixC = {3,2, (double *)matrixCData};
-    Matrix resultSum = {2,3, (double *)resultData};
-    Matrix resultMinus = {2,3, (double *)resultData};
-    Matrix resultMult = {2,2, (double *)resultMultData};
-    /* Perform sum */
-    if (sumMatrices(&matrixA, &matrixB, false, &resultSum)) {
-        printf("Sum of matrices:\n");
-        printMatrix(&resultSum);
-    }
-    if (sumMatrices(&matrixA, &matrixB, true, &resultMinus)) {
-        printf("Subtraction of matrices:\n");
-        printMatrix(&resultMinus);
-    }
-    /* Perform multiplication */
-    if (multiplyMatrices(&matrixA, &matrixC, &resultMult)) {
-        printf("Multiplication of matrices:\n");
-        printMatrix(&resultMinus);
-    }
-    /* Test cases for transposing */
-    // Define a result matrix for the transpose
-    double vectorData[1][3] = {1.1,2.2,3.3};
-    Matrix vector = {1,3,(double *)vectorData};
-    Matrix resultTrans;
-    Matrix vectorTrans;
-
-    // Transpose the matrix
-    if (transposeMatrix(&matrixA, &resultTrans)) {
-        printf("Original matrix:\n");
-        printMatrix(&matrixA);
-        printf("Transposed matrix:\n");
-        printMatrix(&resultTrans);
-        
-        // Free memory if the transpose was out-of-place (rectangular)
-        if (matrixA.data != resultTrans.data) {
-            free(resultTrans.data);
-        }
+Matrix initMatrixZeros(int rows, int cols) {
+    // Allocate memory for the Matrix struct
+    Matrix ret;
+    ret.rows = rows;
+    ret.cols = cols;
+    
+    // Allocate memory for the 2D matrix data (stored as a 1D array)
+    ret.data = (double *)malloc(rows * cols * sizeof(double));
+    
+    // Check if memory allocation was successful
+    if (ret.data == NULL) {
+        printf("Memory allocation failed!\n");
+        exit(1);  // Exit the program if malloc fails
     }
     
-    // Transpose the vector
-    if (transposeMatrix(&vector, &vectorTrans)) {
-        printf("Original vectpr:\n");
-        printMatrix(&vector);
-        printf("Transposed vector:\n");
-        printMatrix(&vectorTrans);
-        
-        // Free memory if the transpose was out-of-place (rectangular)
-        if (vector.data != vectorTrans.data) {
-            free(vectorTrans.data);
-        }
-    }
-    return 0;
+    // Initialize the allocated memory to zero using memset
+    memset(ret.data, 0, rows * cols * sizeof(double));
+    
+    return ret;
 }
 
+/*
+ * Function: Box-Muller Draw
+ * --------------------
+ *  Generates a standard normal random variable draw
+ *  Uses the Box-Muller transform to transform two uniform draws into
+ *  standard normal
+ *
+*/
+double boxMullerDraw(){
+    // Generate two random uniform variables using the random function
+    double u1 = (double)rand()/RAND_MAX;
+    double u2 = (double)rand()/RAND_MAX;
+    // Prevent log of zero
+    if (u1 == 0.0) {
+        u1 = 1e-10;
+    }
+    // Generate draws
+    double z0 = sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
+    double z1 = sqrt(-2.0 * log(u1)) * sin(2.0 * M_PI * u2);
+    // Randomly return one or the other
+    double det = (double)rand()/RAND_MAX;
+    if(det >= 0.5){
+        return z0;
+    }
+    return z1;
+}
 
+/*
+ * Function: Matrix initMatrixRandomNorm
+ * --------------------
+ *  Initializes a matrix to random values according to a standard normal
+ *
+ *  rows (int): the number of rows of the matrix
+ *  cols (int): the number of columns of the matrix
+*/
+Matrix initMatrixRandomNorm(int rows, int cols) {
+    // Allocate memory for the Matrix struct
+    Matrix ret;
+    ret.rows = rows;
+    ret.cols = cols;
+    
+    // Allocate memory for the 2D matrix data (stored as a 1D array)
+    ret.data = (double *)malloc(rows * cols * sizeof(double));
+    
+    // Check if memory allocation was successful
+    if (ret.data == NULL) {
+        printf("Memory allocation failed!\n");
+        exit(1);  // Exit the program if malloc fails
+    }
+    
+    // Call the BoxMuller draw for every element
+    int i;
+    for(i = 0; i < rows*cols; i++){
+        ret.data[i] = boxMullerDraw();
+    }
+    return ret;
+}
+
+/*
+ * Function: double OneIterGradientDescent
+ * --------------------
+ *  Performs one iteration of gradient descent for given matrices and learning rate
+ *  Returns the cost function after that iteration
+ * 
+ *  X (pointer to Matrix): the Matrix with the data
+ *  Theta (pointer to Matrix): the parameters Matrix
+ *  Y (pointer to Matrix): the dependent variable
+ *  lr (double): the learning rate
+*/
+double oneIterGradientDescent(const Matrix *X, Matrix *Theta,const Matrix *Y,double lr){
+    // Multiply X and Theta, then subtract Y and then multiply that from the left with X transposed
+    // Initialize intermediate results
+    Matrix mult;
+    mult.rows = X->rows;
+    mult.cols = Theta->cols;
+    mult.data = (double *)malloc(X->rows*Theta->cols*sizeof(double));
+    multiplyMatrices(X, Theta, &mult);
+    // Subtract to Y
+    Matrix yPred;
+    yPred.rows = Y->rows;
+    yPred.cols = Y->cols;
+    yPred.data = (double *)malloc(Y->rows*Y->cols*sizeof(double));
+    sumMatrices(&mult, Y, true, &yPred);
+    // Get loss
+    double loss;
+    // Initialize the difference of the values
+    Matrix lossVec;
+    lossVec.rows = Y->rows;
+    lossVec.cols = Y->cols;
+    lossVec.data = (double *)malloc(Y->rows*Y->cols*sizeof(double));
+    sumMatrices(&yPred, Y, true, &lossVec);
+    loss = norm(&lossVec);
+    // Free lossVec
+    free(lossVec.data);
+    // Free mult
+    free(mult.data);
+    // Multiply with X transposed
+    Matrix xT;
+    xT.rows = X->cols;
+    xT.cols = X->rows;
+    xT.data = (double *)malloc(xT.rows*xT.cols*sizeof(double));
+    transposeMatrix(X, &xT);
+    // Multiply x transposed and y predicted
+    Matrix step;
+    step.rows = Theta->rows;
+    step.cols = Theta->cols;
+    step.data = (double *)malloc(Theta->rows*Theta->cols*sizeof(double));
+    multiplyMatrices(&xT, &yPred, &step);
+    // Free memory from intermediate steps
+    free(xT.data);
+    free(yPred.data);
+    // Multiply the step by the learning rate
+    multiplyScalar(&step, lr);
+    // Update theta
+    sumMatrices(Theta, &step, true, Theta);
+    // Free memory
+    free(step.data);
+    return loss;
+}
+
+/*
+ * Function: double linearRegression
+ * --------------------
+ *  Performs linear Regression using gradient descent
+ *  Returns the loss
+ * 
+ *  X (pointer to Matrix): the Matrix with the data
+ *  Theta (pointer to Matrix): the parameters Matrix
+ *  Y (pointer to Matrix): the dependent variable
+ *  lr (double): the learning rate
+ *  epochs (int): the maximum number of iterations to iterate for
+ *  loss_tolerance (double): upper threshold on the loss that causes early stopping
+ *  verbose (bool): prints the loss at each epoch
+*/
+double linearRegression(const Matrix *X, Matrix *Theta,const Matrix *Y,double lr,int epochs, double loss_tolerance, bool verbose){
+    double loss;
+    int epoch;
+    for(epoch = 0; epoch < epochs; epoch++){
+        // Do an iteration
+        loss = oneIterGradientDescent(X, Theta,Y,lr);
+        // Print if needed
+        if(verbose){
+            printf("In iteration %d\n",epoch);
+            printf("Current loss %f\n",loss);
+        }
+        // Check if early stop
+        if (loss < loss_tolerance){
+            break;
+        }
+    }
+    return loss;
+
+}
+
+int main(){
+    // Initialize matrices
+    Matrix X = initMatrixRandomNorm(100, 2);
+    Matrix Theta = initMatrixRandomNorm(2, 1);
+    Matrix Y = initMatrixRandomNorm(100, 1);
+    printf("Norm of Y:\n");
+    double normVal = norm(&Y);
+    printf("Norm is: %f\n",normVal);
+    printf("Initial matrix: \n");
+    printMatrix(&Theta);
+    double loss;
+    loss = linearRegression(&X, &Theta,&Y,0.005,20,0.0001,true);
+    printf("Updated matrix: \n");
+    printMatrix(&Theta);
+    printf("Loss function %f",loss);
+    // Multiply 
+    free(X.data);
+    free(Theta.data);
+    free(Y.data);
+    return 0;
+}
 
