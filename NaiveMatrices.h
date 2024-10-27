@@ -28,14 +28,18 @@ typedef struct {
 bool checkDimensions(const Matrix *matrix_a, const Matrix *matrix_b);
 bool isSquare(const Matrix *mat);
 double norm(const Matrix *vector);
+void standardizeMatrix(Matrix *matrix);
 bool sumMatrices(const Matrix *matrix_a, const Matrix *matrix_b, bool subtraction, Matrix *result);
 void printMatrix(const Matrix *matrix);
 bool scalarMultiply(Matrix *matrix, double scalar);
 bool transposeMatrix(const Matrix *matrix, Matrix *result);
 bool multiplyMatrices(const Matrix *matrix_a, const Matrix *matrix_b, Matrix *result);
+Matrix identityMatrix(int n);
+bool inverseMatrix(Matrix *matrix, Matrix *inverse);
 double boxMullerDraw();
 Matrix initMatrixZeros(int rows, int cols);
 Matrix initMatrixRandomNorm(int rows, int cols);
-double oneIterGradientDescent(const Matrix *X, Matrix *Theta,const Matrix *Y,double lr);
-double linearRegression(const Matrix *X, Matrix *Theta,const Matrix *Y,double lr,int epochs, double loss_tolerance, bool verbose);
+double oneIterGradientDescent(const Matrix *X, Matrix *Theta,const Matrix *Y, Matrix *residuals, double lr);
+double linearRegression(const Matrix *X, Matrix *Theta,const Matrix *Y, Matrix *residuals, double lr,int epochs, double loss_tolerance, bool verbose);
+void regressionMetrics(const Matrix *X, const Matrix *Theta, const Matrix *residuals, double loss, Matrix *lowerBounds, Matrix *upperBounds, Matrix *pValues);
 #endif

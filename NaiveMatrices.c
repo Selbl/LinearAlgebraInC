@@ -142,6 +142,55 @@ double norm(const Matrix *vector){
 }
 
 /*
+ * Function: (void) standardizeMatrix
+ * --------------------
+ * Standardizes a matrix by making sure all of its values are between -1 and 1
+ *  matrix (pointer): a pointer to the matrix to normalize
+*/
+void standardizeMatrix(Matrix *matrix){
+    // Do three passes, one to compute means, one to get standard devs and one to correct numbers
+    // The other is to scale every element using those metrics
+    double *means = (double *)malloc( matrix->cols * sizeof(double));
+    double *stdDevs = (double *)malloc( matrix->cols * sizeof(double));
+    // Declare variables of for loops
+    int r;
+    int c;
+    // Initialize means and stdDevs to zero
+    for (c = 0; c < matrix->cols; c++) {
+        means[c] = 0.0;
+        stdDevs[c] = 0.0;
+    }
+    // First pass: add all elements to the means indices
+    for(r = 0;r < matrix->rows;r++){
+        for(c=0;c < matrix->cols;c++){
+            /*Print corresponding element*/
+            means[c] += *(matrix->data + r * matrix->cols + c)/(matrix->rows);
+        }
+    }
+    // Second pass: standard distribution
+    for(r = 0;r < matrix->rows;r++){
+        for(c=0;c < matrix->cols;c++){
+            /*Print corresponding element*/
+            stdDevs[c] += pow((*(matrix->data + r * matrix->cols + c)-means[c]),2)/(matrix->rows);
+        }
+    }
+    // Take square root
+    for(c = 0; c < matrix->cols; c++){
+        stdDevs[c] = sqrt(stdDevs[c]);
+    }
+    // Standarize elements
+    for(r = 0;r < matrix->rows;r++){
+        for(c=0;c < matrix->cols;c++){
+            /*Print corresponding element*/
+            *(matrix->data + r * matrix->cols + c) = (*(matrix->data + r * matrix->cols + c)-means[c])/(stdDevs[c]);
+        }
+    }
+    // free memory
+    free(means);
+    free(stdDevs);
+}
+
+/*
  * Function: (bool) sumMatrices
  * --------------------
  * Sums two matrices and returns whether the sum was successful
@@ -177,7 +226,7 @@ bool sumMatrices(const Matrix *matrix_a, const Matrix *matrix_b, bool subtractio
 }
 
 /*
- * Function: (bool) multiplymMatrices
+ * Function: (bool) multiplyMatrices
  * --------------------
  * Multiplies two matrices and returns whether the multiplication was successful
  * Fails if both matrices have dimensions that do not match
@@ -220,6 +269,81 @@ bool multiplyMatrices(const Matrix *matrix_a, const Matrix *matrix_b, Matrix *re
     /*After the routine is over, return success*/
     return true;
 }
+
+/*
+ * Function: (Matrix) identityMatrix
+ * --------------------
+ * Creates an identity matrix
+ *
+ * n (int): the dimension of the identity matrix 
+ * 
+*/
+Matrix identityMatrix(int n) {
+    Matrix identity = initMatrixZeros(n, n);
+    for (int i = 0; i < n; i++) {
+        identity.data[i * n + i] = 1.0;
+    }
+    return identity;
+}
+
+/*
+ * Function: (bool) inverseMatrix
+ * --------------------
+ * Inverts a matrix using the Gaussian Elimination Method
+ * Returns true if it can be inverted
+ *
+ * matrix (pointer to Matrix): a pointer to the matrix to invert
+ * inverse (pointer to Matrix): a pointer to store the inverse matrix
+ * 
+*/
+bool inverseMatrix(Matrix *matrix, Matrix *inverse) {
+    // Check if the matrix is square
+    if (!isSquare(matrix)) {
+        printf("Matrix is not square.\n");
+        return false;
+    }
+    // Store rows
+    int n = matrix->rows;
+
+    // Initialize inverse as an identity matrix
+    *inverse = identityMatrix(n);
+
+    // Temporary matrix that stores copy of original data
+    Matrix temp = initMatrixZeros(n, n);
+    memcpy(temp.data, matrix->data, n * n * sizeof(double));
+
+    // Gaussian elimination
+    for (int i = 0; i < n; i++) {
+        // Find the pivot element
+        double pivot = temp.data[i * n + i];
+        if (fabs(pivot) < 1e-10) {  // Check for near-zero pivot
+            printf("Matrix is singular or nearly singular.\n");
+            free(temp.data);
+            return false;
+        }
+
+        // Scale pivot row to make pivot element equal to 1
+        for (int j = 0; j < n; j++) {
+            temp.data[i * n + j] /= pivot;
+            inverse->data[i * n + j] /= pivot;
+        }
+
+        // Make other rows zero in current column
+        for (int k = 0; k < n; k++) {
+            if (k != i) {
+                double factor = temp.data[k * n + i];
+                for (int j = 0; j < n; j++) {
+                    temp.data[k * n + j] -= factor * temp.data[i * n + j];
+                    inverse->data[k * n + j] -= factor * inverse->data[i * n + j];
+                }
+            }
+        }
+    }
+
+    free(temp.data);
+    return true;
+}
+
 
 /*
  * Function: (void) printMatrix
@@ -338,9 +462,10 @@ Matrix initMatrixRandomNorm(int rows, int cols) {
  *  X (pointer to Matrix): the Matrix with the data
  *  Theta (pointer to Matrix): the parameters Matrix
  *  Y (pointer to Matrix): the dependent variable
+ *  residuals (pointer to Matrix): vector to store residuals of last iteration
  *  lr (double): the learning rate
 */
-double oneIterGradientDescent(const Matrix *X, Matrix *Theta,const Matrix *Y,double lr){
+double oneIterGradientDescent(const Matrix *X, Matrix *Theta,const Matrix *Y, Matrix *residuals,double lr){
     // Multiply X and Theta, then subtract Y and then multiply that from the left with X transposed
     // Initialize intermediate results
     Matrix mult;
@@ -363,6 +488,8 @@ double oneIterGradientDescent(const Matrix *X, Matrix *Theta,const Matrix *Y,dou
     lossVec.data = (double *)malloc(Y->rows*Y->cols*sizeof(double));
     sumMatrices(&yPred, Y, true, &lossVec);
     loss = norm(&lossVec);
+    // Store residuals
+    memcpy(residuals->data, lossVec.data, lossVec.rows * lossVec.cols * sizeof(double));
     // Free lossVec
     free(lossVec.data);
     // Free mult
@@ -400,17 +527,18 @@ double oneIterGradientDescent(const Matrix *X, Matrix *Theta,const Matrix *Y,dou
  *  X (pointer to Matrix): the Matrix with the data
  *  Theta (pointer to Matrix): the parameters Matrix
  *  Y (pointer to Matrix): the dependent variable
+ *  residuals (pointer to Matrix): vector to store residuals
  *  lr (double): the learning rate
  *  epochs (int): the maximum number of iterations to iterate for
  *  loss_tolerance (double): upper threshold on the loss that causes early stopping
  *  verbose (bool): prints the loss at each epoch
 */
-double linearRegression(const Matrix *X, Matrix *Theta,const Matrix *Y,double lr,int epochs, double loss_tolerance, bool verbose){
+double linearRegression(const Matrix *X, Matrix *Theta,const Matrix *Y, Matrix *residuals, double lr,int epochs, double loss_tolerance, bool verbose){
     double loss;
     int epoch;
     for(epoch = 0; epoch < epochs; epoch++){
         // Do an iteration
-        loss = oneIterGradientDescent(X, Theta,Y,lr);
+        loss = oneIterGradientDescent(X, Theta,Y,residuals,lr);
         // Print if needed
         if(verbose){
             printf("In iteration %d\n",epoch);
@@ -425,6 +553,56 @@ double linearRegression(const Matrix *X, Matrix *Theta,const Matrix *Y,double lr
 
 }
 
+/*
+ * Function: void regressionMetrics
+ * --------------------
+ *  Retrieves the confidence intervals and p values for the results of
+ *  the linear regression
+ * 
+ *  X (pointer to Matrix): the independent variables matrix
+ *  Theta (pointer to Matrix): the parameters Matrix
+ *  residuals (pointer to Matrix): vector to store residuals
+ *  loss (double): the loss of the linear regression
+ *  lowerBounds (pointer to Matrix): lower bound of the confidence interval
+ *  upperBounds (pointer to Matrix): upper bound of the confidence interval
+ *  pValues (pointer to Matrix): p-values
+*/
+void regressionMetrics(const Matrix *X, const Matrix *Theta, const Matrix *residuals, double loss, Matrix *lowerBounds, Matrix *upperBounds, Matrix *pValues){
+    // Get the residual variance
+    double resVar = loss/(X->rows - X->cols);
+    // Initialize variables to do the inverse
+    Matrix inv;
+    Matrix multX;
+    multX.rows = X->cols;
+    multX.cols = X->cols;
+    multX.data = (double *)malloc(X->rows*X->cols*sizeof(double));
+    Matrix xT;
+    xT.rows = X->cols;
+    xT.cols = X->rows;
+    xT.data = (double *)malloc(xT.rows*xT.cols*sizeof(double));
+    transposeMatrix(X, &xT);
+    multiplyMatrices(&xT, X, &multX);
+    inverseMatrix(&multX,&inv);
+    // Get covariance matrix
+    multiplyScalar(&inv, resVar);
+    // Get lower and upper bounds of confidence intervals
+    int c;
+    // Get critical value
+    double critVal = 1.96;
+    for(c = 0; c < inv.cols; c++){
+        double stdDev = sqrt(*(inv.data + c * inv.cols + c));
+        double tStat = *(Theta->data + c)/stdDev;
+        *(lowerBounds->data + c) = *(Theta->data + c)-critVal*stdDev;
+        *(upperBounds->data + c) = *(Theta->data + c)+critVal*stdDev;
+        *(pValues->data + c) = erfc(fabs(tStat)*sqrt(0.5));
+    }
+    // 
+    // Free memory
+    free(inv.data);
+    free(multX.data);
+    free(xT.data);
+}
+
 int main(){
     // Initialize matrices
     Matrix X = initMatrixRandomNorm(100, 2);
@@ -433,17 +611,70 @@ int main(){
     printf("Norm of Y:\n");
     double normVal = norm(&Y);
     printf("Norm is: %f\n",normVal);
-    printf("Initial matrix: \n");
+    //multiplyScalar(&X, 5.0);
+    //printf("Initial data X prior to standarization:\n");
+    //printMatrix(&X);
+    //standardizeMatrix(&X);
+    //printf("Initial data X after standarization:\n");
+    //printMatrix(&X);
+    printf("Initial matrix Theta: \n");
     printMatrix(&Theta);
     double loss;
-    loss = linearRegression(&X, &Theta,&Y,0.005,20,0.0001,true);
-    printf("Updated matrix: \n");
+    // Initialize residuals
+    Matrix residuals;
+    residuals.rows = Y.rows;
+    residuals.cols = Y.cols;
+    residuals.data = (double *)malloc(Y.rows*Y.cols*sizeof(double));
+    loss = linearRegression(&X, &Theta,&Y,&residuals,0.005,20,0.0001,true);
+    printf("Updated matrix Theta: \n");
     printMatrix(&Theta);
     printf("Loss function %f",loss);
-    // Multiply 
+    printf("Residuals\n");
+    printMatrix(&residuals);
+    printf("Inverting the matrix of X\n");
+    Matrix inv;
+    Matrix multX;
+    multX.rows = X.cols;
+    multX.cols = X.cols;
+    multX.data = (double *)malloc(X.rows*X.cols*sizeof(double));
+    Matrix xT;
+    xT.rows = X.cols;
+    xT.cols = X.rows;
+    xT.data = (double *)malloc(xT.rows*xT.cols*sizeof(double));
+    transposeMatrix(&X, &xT);
+    multiplyMatrices(&xT, &X, &multX);
+    inverseMatrix(&multX,&inv);
+    printMatrix(&inv);
+    printf("Dimensions of inv rows: %d, cols: %d\n",inv.rows,inv.cols);
+    // Get the metrics
+    Matrix ICLow;
+    ICLow.rows = X.cols;
+    ICLow.cols = 1;
+    ICLow.data = (double *)malloc(X.rows*sizeof(double));
+    Matrix ICUp;
+    ICUp.rows = X.cols;
+    ICUp.cols = 1;
+    ICUp.data = (double *)malloc(X.rows*sizeof(double));
+    Matrix PVals;
+    PVals.rows = X.cols;
+    PVals.cols = 1;
+    PVals.data = (double *)malloc(X.rows*sizeof(double));
+    // Get metrics
+    regressionMetrics(&X, &Theta, &residuals, loss, &ICLow, &ICUp, &PVals);
+    printf("Lower Bounds:\n");
+    printMatrix(&ICLow);
+    printf("Upper Bounds:\n");
+    printMatrix(&ICUp);
+    printf("P Values:\n");
+    printMatrix(&PVals);
+    // Free memory
     free(X.data);
     free(Theta.data);
     free(Y.data);
+    free(residuals.data);
+    free(xT.data);
+    free(multX.data);
+    free(inv.data);
     return 0;
 }
 
